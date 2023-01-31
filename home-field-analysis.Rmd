@@ -1,0 +1,131 @@
+---
+title: "Home Field Analysis"
+author: "Nick Boyd"
+date: "2023-01-31"
+output: html_document
+---
+
+#### Load packages
+```{r setup, include=FALSE}
+library(tidyverse)
+```
+
+##### Import data
+```{r}
+df = read_csv("epl_scores_clean.csv")
+df_summary = read_csv("epl_summary_all_seasons.csv")
+```
+
+
+##  Home Field Advantage - Goals Scored
+
+This will show which teams are able to score the most at home vs. away. Teams with large discrepancies between home goals scored and and away goals scored seem to benefit offensively when playing at home (or are adversely affected offensively when playing away)
+
+#### Create summary table
+```{r}
+df_hfa_scored = df_summary %>%
+    
+    # Select goal variables
+    select(Team,
+           hg_scored, 
+           ag_scored,
+           total_scored) %>%
+    
+    # How many more goals scored at home than away? What proportion is this?
+    mutate(hfa_goals_scored = hg_scored - ag_scored,
+           hg_prop = hg_scored / total_scored,
+           ag_proportion = 1-hg_prop) %>%
+    
+    # Remove total goals scored
+    select(-total_scored) %>%
+    
+    # Sort by hfa_goals_scored
+    arrange(desc(hg_prop))
+
+df_hfa_scored
+```
+
+All but 1 team score more goals at home then away. The outlier is Crystal Palace, who is at a .49 home-to-away goal ratio (having scored 262 away goals vs. there 255
+
+##  Home Field Advantage - Goals Scores
+
+This will show which which teams are able to defend the best at home vs. away. Teams with large discrepancies between away goals conceded and home goals conceded seem to benefit defensively when playing at home (or are the most adversely affected when traveling to away gaols, depending on how you view it).
+
+#### Create summary table
+```{r}
+df_hfa_conceded = df_summary %>%
+    
+    # Select goal variables
+    select(Team,
+           hg_conceded, 
+           ag_conceded,
+           total_conceded) %>%
+    
+    # How many more goals scored at home than away? What proportion is this?
+    mutate(hfa_goals_conceded = hg_conceded - ag_conceded,
+           hg_conceded_prop = hg_conceded / total_conceded,
+           ag_conceded_prop = 1-hg_conceded_prop) %>%
+    
+    # Remove total goals scored
+    select(-total_conceded) %>%
+    
+    # Sort by hfa_goals_scored
+    arrange(hg_conceded_prop)
+
+df_hfa_conceded
+```
+
+Only 1 team conceded more at home then away - Cardiff. They conceded 73 at home vs 70 away (a ratio of 0.49 home to away goals conceded)
+
+## Home Field Advantage - Wins
+
+This will show which which teams win more at home vs. away. Teams with large discrepancies between home wins and and away wins seem to benefit the most overall when playing at home (or are the most adversely affected when traveling to away games, depending on how you view it).
+
+#### Create summary table
+```{r}
+df_hfa_wins = df_summary %>%
+    
+    # Select goal variables
+    select(Team,
+           home_wins, 
+           away_wins,
+           total_wins) %>%
+    
+    # How many more goals scored at home than away? What proportion is this?
+    mutate(win_diff = home_wins - away_wins,
+           home_win_prop = home_wins / total_wins,
+           away_win_prop = 1-home_win_prop) %>%
+    
+    # Remove total goals scored
+    select(-total_wins) %>%
+    
+    # Sort by hfa_goals_scored
+    arrange(desc(home_win_prop))
+
+df_hfa_wins
+```
+
+This is an interesting finding, the teams with the highest home win ratios are mostly smaller clubs. In contrast, the Big 6 (Man United, Chelsea, Liverpool, Arsenal, Man City, Tottenham) all have significantly lower home field between 0.57-0.62. 
+
+#### Add new calculations to summary table
+```{r}
+df_summary = df_summary %>%
+    mutate(hfa_goals_scored = df_hfa_scored$hfa_goals_scored,
+           hfa_goals_scored_prop = df_hfa_scored$hg_prop,
+           hfa_goals_conceded = df_hfa_conceded$hfa_goals_conceded,
+           hfa_goals_conceded_prop = df_hfa_conceded$hg_conceded_prop,
+           hfa_wins = df_hfa_wins$win_diff,
+           hfa_wins_prop = df_hfa_wins$home_win_prop
+           )
+```
+
+In sum, home field advantage does seem to be a factor. It would be interesting now to reshape the data so that we could use a home_team dummy variable to build a regression model around goals scored, goals conceded, wins, etc.
+
+```{r}
+write_csv(df_summary, "epl_home_field_advantage.csv")
+```
+
+
+### Next Step
+- Visualizations
+- Apply function to calculate these statistics for each season, then aggregate

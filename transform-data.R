@@ -16,7 +16,36 @@ df = df %>%
 # Update data types
 df$Date = as.Date(df$Date, "%d/%m/%Y")
 
-#### Build function to transform data with date filter ####
+
+#### TRANSFORMATION 1 - BY DATE / SEASON ####
+
+# Create goal difference column
+df$GD = df$FTHG - df$FTAG
+
+# Add points and wins
+df = df %>%
+    mutate(home_points = case_when(FTR == "H" ~ 3,
+                                  FTR == "D" ~ 1,
+                                  FTR == "A" ~ 0),
+           
+           away_points = case_when(FTR == "H" ~ 0,
+                                  FTR == "D" ~ 1,
+                                  FTR == "A" ~ 3),
+           
+           home_wins = case_when(FTR == "H" ~ 1,
+                               FTR == "D" ~ 0,
+                               FTR == "A" ~ 0),
+           
+           away_wins = case_when(FTR == "H" ~ 0,
+                               FTR == "D" ~ 0,
+                               FTR == "A" ~ 1)
+    )
+
+df
+
+#### TRANSFORMATION 2 - SUMMARY STATISTICS #####
+
+## Build function to transform data with date filter
     
 # summarize_epl takes 3 arguments:
 # df (required): dataframe to summarize
@@ -52,8 +81,14 @@ summarize_epl = function(df, start_date, end_date) {
         # Summarize for the home team - total goals scored, total goals conceded, avg goals scored, avg goals conceded
         summarise(hg_scored = sum(FTHG),
                   hg_conceded= sum(FTAG),
+                  home_gd = sum(GD),
+                  home_points = sum(home_points),
+                  home_wins = sum(home_wins),
                   avg_hgs = hg_scored/n(),
                   avg_hgc = hg_conceded/n(), 
+                  avg_hgd = home_gd / n(),
+                  avg_home_points = home_points / n(),
+                  avg_home_wins = home_wins / n(),
                   home_matches = n(),
                   seasons = n_distinct(Season)) %>%
         
@@ -69,8 +104,14 @@ summarize_epl = function(df, start_date, end_date) {
         # Summarize for the away team - total goals scored, total goals conceded, avg goals scored, avg goals conceded
         summarise(ag_scored = sum(FTAG),
                   ag_conceded= sum(FTHG),
+                  away_gd = ag_scored - ag_conceded,
+                  away_points = sum(away_points),
+                  away_wins = sum(away_wins),
                   avg_ags = ag_scored/n(),
                   avg_agc = ag_conceded/n(), 
+                  avg_agd = away_gd/n(),
+                  avg_away_points = away_points / n(),
+                  avg_away_wins = away_wins / n(),
                   away_matches = n()) %>%
         
         # Rename column
@@ -80,10 +121,14 @@ summarize_epl = function(df, start_date, end_date) {
     df_combined = merge(df_home, df_away, by="Team") %>%
         mutate(total_scored = hg_scored + ag_scored,
                total_conceded = hg_conceded + ag_conceded,
+               total_gd = total_scored - total_conceded,
+               total_points = home_points + away_points,
+               total_wins = home_wins + away_wins,
                total_matches = home_matches + away_matches,
-               avg_scored = total_scored / total_matches,
-               avg_conceded = total_conceded / total_matches,
-               goal_difference = total_scored - total_conceded)
+               total_avg_scored = total_scored / total_matches,
+               total_avg_conceded = total_conceded / total_matches,
+               total_avg_points = total_points / total_matches,
+               total_avg_wins = total_wins/total_matches)
     
     
     # Create filename
@@ -99,5 +144,7 @@ summarize_epl = function(df, start_date, end_date) {
 
 # Use function and write to CSV for further analysis in data viz tool 
 df_summary_all_seasons = summarize_epl(df)
+
+write_csv(df, "epl_scores_clean.csv")
 write_csv(df_summary_all_seasons, "epl_summary_all_seasons.csv")
 
